@@ -89,6 +89,7 @@ function (chai, Session) {
         assert.equal(Session.key7, 'value7');
         assert.equal(Session.key8, 'value8');
       });
+
     });
   });
 });

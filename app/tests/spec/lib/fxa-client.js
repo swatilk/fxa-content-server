@@ -34,7 +34,8 @@ function (chai, $, sinon, FxaClient, p, testHelpers, Session, FxaClientWrapper,
   var client;
   var realClient;
   var relier;
-  var expectedResumeToken;
+  var expectedResumeTokenWithKeys;
+  var expectedResumeTokenWithoutKeys;
 
   function trim(str) {
     return $.trim(str);
@@ -48,7 +49,8 @@ function (chai, $, sinon, FxaClient, p, testHelpers, Session, FxaClientWrapper,
       relier.set('service', SERVICE);
       relier.set('redirectTo', REDIRECT_TO);
 
-      expectedResumeToken = ResumeToken.stringify({ state: STATE });
+      expectedResumeTokenWithKeys = ResumeToken.stringify({ state: STATE, keys: true });
+      expectedResumeTokenWithoutKeys = ResumeToken.stringify({ state: STATE, keys: false });
 
       realClient = new FxaClient(AUTH_SERVER_URL);
 
@@ -75,13 +77,15 @@ function (chai, $, sinon, FxaClient, p, testHelpers, Session, FxaClientWrapper,
           });
         });
 
+        assert.isTrue(relier.wantsKeys());
         return client.signUp(email, password, relier, { customizeSync: true })
           .then(function (sessionData) {
             assert.isTrue(realClient.signUp.calledWith(trim(email), password, {
               keys: true,
               service: SERVICE,
               redirectTo: REDIRECT_TO,
-              resume: expectedResumeToken
+              // The resume token doesn't record keys=true since it is implied when service=sync.
+              resume: expectedResumeTokenWithoutKeys
             }));
 
             // The following should only be set for Sync
@@ -105,7 +109,7 @@ function (chai, $, sinon, FxaClient, p, testHelpers, Session, FxaClientWrapper,
               keys: false,
               service: 'chronicle',
               redirectTo: REDIRECT_TO,
-              resume: expectedResumeToken
+              resume: expectedResumeTokenWithoutKeys
             }));
 
             // These should not be returned by default
@@ -133,7 +137,7 @@ function (chai, $, sinon, FxaClient, p, testHelpers, Session, FxaClientWrapper,
               keys: true,
               service: 'chronicle',
               redirectTo: REDIRECT_TO,
-              resume: expectedResumeToken
+              resume: expectedResumeTokenWithKeys
             }));
 
             assert.equal(sessionData.unwrapBKey, 'unwrapBKey');
@@ -176,7 +180,7 @@ function (chai, $, sinon, FxaClient, p, testHelpers, Session, FxaClientWrapper,
             keys: true,
             redirectTo: REDIRECT_TO,
             service: SERVICE,
-            resume: expectedResumeToken
+            resume: expectedResumeTokenWithoutKeys
           }));
         });
       });
@@ -197,7 +201,7 @@ function (chai, $, sinon, FxaClient, p, testHelpers, Session, FxaClientWrapper,
               keys: true,
               redirectTo: REDIRECT_TO,
               service: SERVICE,
-              resume: expectedResumeToken
+              resume: expectedResumeTokenWithoutKeys
             }));
 
             return p.reject(AuthErrors.toError('INVALID_VERIFICATION_CODE'));
@@ -206,7 +210,7 @@ function (chai, $, sinon, FxaClient, p, testHelpers, Session, FxaClientWrapper,
               keys: true,
               redirectTo: REDIRECT_TO,
               service: SERVICE,
-              resume: expectedResumeToken
+              resume: expectedResumeTokenWithoutKeys
             }));
 
             return p({});
@@ -233,7 +237,7 @@ function (chai, $, sinon, FxaClient, p, testHelpers, Session, FxaClientWrapper,
             var params = {
               service: SERVICE,
               redirectTo: REDIRECT_TO,
-              resume: expectedResumeToken
+              resume: expectedResumeTokenWithoutKeys
             };
             assert.isTrue(
                 realClient.recoveryEmailResendCode.calledWith(
@@ -401,7 +405,7 @@ function (chai, $, sinon, FxaClient, p, testHelpers, Session, FxaClientWrapper,
             var params = {
               service: SERVICE,
               redirectTo: REDIRECT_TO,
-              resume: expectedResumeToken
+              resume: expectedResumeTokenWithoutKeys
             };
             assert.isTrue(
                 realClient.passwordForgotSendCode.calledWith(
@@ -433,7 +437,7 @@ function (chai, $, sinon, FxaClient, p, testHelpers, Session, FxaClientWrapper,
             var params = {
               service: SERVICE,
               redirectTo: REDIRECT_TO,
-              resume: expectedResumeToken
+              resume: expectedResumeTokenWithoutKeys
             };
             assert.isTrue(
                 realClient.passwordForgotResendCode.calledWith(

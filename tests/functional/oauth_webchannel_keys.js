@@ -12,12 +12,14 @@ define([
   'tests/lib/restmail',
   'tests/lib/helpers',
   'tests/functional/lib/helpers',
+  'tests/functional/lib/fx-desktop'
 ], function (intern, registerSuite, assert, require, nodeXMLHttpRequest,
-        FxaClient, restmail, TestHelpers, FunctionalHelpers) {
+        FxaClient, restmail, TestHelpers, FunctionalHelpers, FxDesktopHelpers) {
   'use strict';
 
   var config = intern.config;
   var AUTH_SERVER_ROOT = config.fxaAuthRoot;
+  var SYNC_URL = config.fxaContentRoot + 'signin?context=fx_desktop_v1&service=sync';
 
   var PASSWORD = 'password';
   var TOO_YOUNG_YEAR = new Date().getFullYear() - 13;
@@ -27,11 +29,14 @@ define([
   var client;
   var ANIMATION_DELAY_MS = 1000;
 
+  var listenForSyncCommands = FxDesktopHelpers.listenForFxaCommands;
+  var testIsBrowserNotifiedOfSyncLogin = FxDesktopHelpers.testIsBrowserNotifiedOfLogin;
+
 
   /**
-   * This suite tests the WebChannel functionality in the OAuth signin and
-   * signup cases. It uses a CustomEvent "WebChannelMessageToChrome" to
-   * finish OAuth flows
+   * This suite tests the WebChannel functionality for delivering encryption keys
+   * in the OAuth signin and signup cases. It uses a CustomEvent "WebChannelMessageToChrome"
+   * to finish OAuth flows
    */
 
   function testIsBrowserNotifiedOfLogin(context, shouldCloseTab) {
@@ -39,14 +44,14 @@ define([
       assert.ok(data.redirect);
       assert.ok(data.code);
       assert.ok(data.state);
-      // None of these flows should produce encryption keys.
-      assert.notOk(data.keys);
+      // All of these flows should produce encryption keys.
+      assert.ok(data.keys);
       assert.equal(data.closeWindow, shouldCloseTab);
     });
   }
 
   function openFxaFromRp(context, page, additionalQueryParams) {
-    var queryParams = '&webChannelId=test';
+    var queryParams = '&webChannelId=test&keys=true';
     for (var key in additionalQueryParams) {
       queryParams += ('&' + key + '=' + additionalQueryParams[key]);
     }
@@ -55,7 +60,7 @@ define([
 
 
   registerSuite({
-    name: 'oauth web channel',
+    name: 'oauth web channel keys',
 
     beforeEach: function () {
       email = TestHelpers.createEmail();
@@ -71,45 +76,7 @@ define([
       });
     },
 
-    'signin an unverified account using an oauth app': function () {
-      var self = this;
-
-      return openFxaFromRp(self, 'signin')
-        .then(function () {
-          return client.signUp(email, PASSWORD, { preVerified: false });
-        })
-
-        .then(function () {
-          return FunctionalHelpers.fillOutSignIn(self, email, PASSWORD);
-        })
-
-        // wah wah, user has to verify.
-        .findByCssSelector('#fxa-confirm-header')
-        .end();
-    },
-
-    'signin a verified account using an oauth app': function () {
-      var self = this;
-
-      return openFxaFromRp(self, 'signin')
-        .then(function () {
-          return client.signUp(email, PASSWORD, { preVerified: true });
-        })
-
-        .execute(FunctionalHelpers.listenForWebChannelMessage)
-
-        .then(function () {
-          return FunctionalHelpers.fillOutSignIn(self, email, PASSWORD);
-        })
-
-        .then(testIsBrowserNotifiedOfLogin(self, true))
-
-        // no screen transition, Loop will close this screen.
-        .findByCssSelector('#fxa-signin-header')
-        .end();
-    },
-
-    'signup, verify same browser': function () {
+    'signup, verify same browser with original tab open': function () {
       var self = this;
 
       return openFxaFromRp(self, 'signup')
@@ -248,6 +215,7 @@ define([
         })
 
         // new browser dead ends at the 'account verified' screen.
+        // It should not try to generate keys and complete the flow.
         .findByCssSelector('#fxa-sign-up-complete-header')
         .end();
     },
@@ -286,7 +254,7 @@ define([
               self, PASSWORD, PASSWORD);
         })
 
-        // this tab's success is seeing the reset password complete header.
+        // this tab should get the reset password complete header.
         .findByCssSelector('#fxa-reset-password-complete-header')
         .end()
 
@@ -296,6 +264,7 @@ define([
         .then(function (isDisplayed) {
           assert.isFalse(isDisplayed);
         })
+        // It will almost always win the race to finish the oauth flow.
         .end()
 
         .closeCurrentWindow()
@@ -481,8 +450,56 @@ define([
         })
 
         // this tab's success is seeing the reset password complete header.
+        // It should not try to derive keys and complete the flow.
         .findByCssSelector('#fxa-reset-password-complete-header')
         .end();
+    },
+
+    'signin a verified account and requesting keys after signing in to sync': function () {
+      var self = this;
+
+      return client.signUp(email, PASSWORD, { preVerified: true })
+        .then(function () {
+          return self.get('remote')
+            .get(require.toUrl(SYNC_URL))
+            .setFindTimeout(intern.config.pageLoadTimeout)
+            .execute(listenForSyncCommands)
+
+            .findByCssSelector('#fxa-signin-header')
+            .end()
+
+            .then(function () {
+              return FunctionalHelpers.fillOutSignIn(self, email, PASSWORD);
+            })
+
+            .then(function () {
+              return testIsBrowserNotifiedOfSyncLogin(self, email, { checkVerified: true });
+            })
+
+            .then(function () {
+              return openFxaFromRp(self, 'signin');
+            })
+
+            .findByCssSelector('#fxa-signin-header')
+            .end()
+
+            .execute(FunctionalHelpers.listenForWebChannelMessage)
+
+            // In a keyless oauth flow, the user could just click to confirm
+            // without re-entering their password.  Since we need the password
+            // to derive the keys, this flow must prompt for it.
+            .findByCssSelector('input[type=password]')
+              .click()
+              .clearValue()
+              .type(PASSWORD)
+            .end()
+
+            .findByCssSelector('button[type="submit"]')
+              .click()
+            .end()
+
+            .then(testIsBrowserNotifiedOfLogin(self, true, true));
+        });
     }
   });
 

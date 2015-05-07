@@ -14,8 +14,9 @@ define([
   'models/auth_brokers/oauth',
   'models/auth_brokers/mixins/channel',
   'lib/promise',
+  'lib/pending-tasks',
   'lib/channels/web'
-], function (_, OAuthAuthenticationBroker, ChannelMixin, p, WebChannel) {
+], function (_, OAuthAuthenticationBroker, ChannelMixin, p, PendingTasks, WebChannel) {
 
   var WebChannelAuthenticationBroker = OAuthAuthenticationBroker.extend({
     defaults: _.extend({}, OAuthAuthenticationBroker.prototype.defaults, {
@@ -96,20 +97,77 @@ define([
                 this, account, { closeWindow: true });
     },
 
+    /**
+     * If the user has to go through an email verification loop, they could
+     * wind up with two tabs open that are both capable of completing the OAuth
+     * flow.  To avoid sending duplicate webchannel events, and to avoid double
+     * use of the keyFetchToken when the relier wants keys, we use an explicit
+     * "pending task" abstraction to ensure that only a single tab completes
+     * the flow.
+     *
+     */
+
+    persist: function () {
+      return OAuthAuthenticationBroker.prototype.persist.call(this)
+        .then(function () {
+          return PendingTasks.create('complete-oauth-flow', {});
+        });
+    },
+
+    beforeSignUpConfirmationPoll: function (account) {
+      // If the relier wants keys, the signup verification tab will need
+      // to be able to fetch them in order to complete the flow.
+      // Store them as part of the pending completion task.
+      if (this.relier.wantsKeys()) {
+        PendingTasks.update('complete-oauth-flow', {
+          keyFetchToken: account.get('keyFetchToken'),
+          unwrapBKey: account.get('unwrapBKey')
+        });
+      }
+    },
+
+    finishPendingOAuthFlow: function (account, additionalResultData) {
+      var self = this;
+      return PendingTasks.retrieve('complete-oauth-flow')
+        .then(function (task) {
+          // Another tab may have already completed the flow.
+          if (! task) {
+            return null;
+          }
+          // If we're completing in a new tab, we may not have access
+          // to key-fetching material.  Retreive from the task if necessary.
+          if (self.relier.wantsKeys()) {
+            if (! account.get('keyFetchToken')) {
+              account.set('keyFetchToken', task.data.keyFetchToken);
+            }
+            if (! account.get('unwrapBKey')) {
+              account.set('unwrapBKey', task.data.unwrapBKey);
+            }
+          }
+          return self.finishOAuthFlow(account, additionalResultData)
+            .fin(function () {
+              PendingTasks.clear('complete-oauth-flow');
+            });
+        });
+    },
+
+    afterSignUpConfirmationPoll: function (account) { 
+      return this.finishPendingOAuthFlow(account);
+    },
+
     afterCompleteSignUp: function (account) {
-      // The original tab may be closed, so the verification tab should
-      // send the OAuth result to the browser to ensure the flow completes.
-      //
       // The slight delay is to allow the functional tests time to bind
       // event handlers before the flow completes.
       var self = this;
-      return p().delay(100).then(_.bind(self.finishOAuthFlow, self, account));
+      return p().delay(100).then(_.bind(self.finishPendingOAuthFlow, self, account)); 
+    },
+
+    afterResetPasswordConfirmationPoll: function(account) {
+      return this.finishPendingOAuthFlow(account);
     },
 
     afterCompleteResetPassword: function (account) {
-      // The original tab may be closed, so the verification tab should
-      // send the OAuth result to the browser to ensure the flow completes.
-      return this.finishOAuthFlow(account);
+      return this.finishPendingOAuthFlow(account);
     },
 
     // used by the ChannelMixin to get a channel.

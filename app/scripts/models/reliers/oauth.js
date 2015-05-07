@@ -17,7 +17,7 @@ define([
   'lib/relier-keys',
   'lib/url'
 ], function (_, Relier, ResumeToken, p, OAuthErrors, RelierKeys, Url) {
-  var RELIER_FIELDS_IN_RESUME_TOKEN = ['state'];
+  var RELIER_FIELDS_IN_RESUME_TOKEN = ['state', 'keys'];
 
   var OAuthRelier = Relier.extend({
     defaults: _.extend({}, Relier.prototype.defaults, {
@@ -113,6 +113,7 @@ define([
 
       self.set({
         state: resumeObj.state,
+        keys: resumeObj.keys,
         //jshint camelcase: false
         clientId: resumeObj.client_id,
         redirectUri: resumeObj.redirect_uri,
