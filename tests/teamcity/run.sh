@@ -80,4 +80,6 @@ $FXA_FIREFOX_BINARY --version 2>/dev/null # squelch annoying 'GLib-CRITICAL **' 
     fxaIframeOauthApp="${FXA_OAUTH_APP_ROOT}iframe" \
     fxaEmailRoot="http://restmail.net" \
     fxaProduction="true" \
-    firefoxBinary="$FXA_FIREFOX_BINARY"
+    firefoxBinary="$FXA_FIREFOX_BINARY" \
+    useTeamCityReporter=true \
+    grep='preverified'
