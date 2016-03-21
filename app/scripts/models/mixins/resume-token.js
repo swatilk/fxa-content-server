@@ -13,6 +13,7 @@ define(function (require, exports, module) {
   'use strict';
 
   var ResumeToken = require('models/resume-token');
+  var vat = require('lib/vat');
 
   module.exports = {
     /**
@@ -28,8 +29,9 @@ define(function (require, exports, module) {
     },
 
     /**
-     * Sets model properties from a stringified ResumeToken. A stringified
-     * ResumeToken is generally one passed in the `resume` query parameter.
+     * Sets model properties from a stringified ResumeToken, unless said token
+     * is invalid according to `this.resumeTokenSchema`. A stringified ResumeToken
+     * is generally one passed in the `resume` query parameter.
      *
      * @method populateFromStringifiedResumeToken
      * @param {String} stringifiedResumeToken
@@ -44,16 +46,30 @@ define(function (require, exports, module) {
     },
 
     /**
-     * Sets model properties from a ResumeToken.
+     * Sets model properties from a ResumeToken, unless said token
+     * is invalid according to `this.resumeTokenSchema`.
      *
      * @method populateFromResumeToken
      * @param {ResumeToken} resumeToken
      */
     populateFromResumeToken: function (resumeToken) {
       if (this.resumeTokenFields) {
-        this.set(resumeToken.pick(this.resumeTokenFields));
+        var pickedResumeToken = resumeToken.pick(this.resumeTokenFields);
+
+        if (isResumeTokenValid(pickedResumeToken, this.resumeTokenSchema)) {
+          this.set(pickedResumeToken);
+        }
       }
     }
   };
+
+  function isResumeTokenValid (resumeToken, schema) {
+    if (schema) {
+      var result = vat.validate(resumeToken, schema);
+      return ! result.error;
+    }
+
+    return true;
+  }
 });
 
