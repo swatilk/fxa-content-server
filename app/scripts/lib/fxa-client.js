@@ -200,6 +200,8 @@ define(function (require, exports, module) {
             signInOptions.service = relier.get('service');
           }
 
+          setMetricsContext(signInOptions, options);
+
           return client.signIn(email, password, signInOptions);
         })
         .then(function (accountData) {
@@ -237,6 +239,8 @@ define(function (require, exports, module) {
           if (options.resume) {
             signUpOptions.resume = options.resume;
           }
+
+          setMetricsContext(signUpOptions, options);
 
           return client.signUp(email, password, signUpOptions)
             .then(function (accountData) {
@@ -337,7 +341,7 @@ define(function (require, exports, module) {
         });
     },
 
-    completePasswordReset: function (originalEmail, newPassword, token, code) {
+    completePasswordReset: function (originalEmail, newPassword, token, code, options) {
       var email = trim(originalEmail);
       var client;
 
@@ -347,9 +351,13 @@ define(function (require, exports, module) {
                 return client.passwordForgotVerifyCode(code, token);
               })
               .then(function (result) {
+                var accountResetOptions = {};
+                setMetricsContext(accountResetOptions, options || {});
+
                 return client.accountReset(email,
                            newPassword,
-                           result.accountResetToken);
+                           result.accountResetToken,
+                           accountResetOptions);
               });
     },
 
@@ -415,13 +423,17 @@ define(function (require, exports, module) {
         });
     },
 
-    certificateSign: function (pubkey, duration, sessionToken) {
+    certificateSign: function (pubkey, duration, sessionToken, options) {
       return this._getClient()
               .then(function (client) {
+                var certificateSignOptions = {};
+                setMetricsContext(certificateSignOptions, options || {});
+
                 return client.certificateSign(
                   sessionToken,
                   pubkey,
-                  duration);
+                  duration,
+                  certificateSignOptions);
               });
     },
 
@@ -501,5 +513,11 @@ define(function (require, exports, module) {
   };
 
   module.exports = FxaClientWrapper;
+
+  function setMetricsContext (serverOptions, options) {
+    if (options.metricsContext) {
+      serverOptions.metricsContext = options.metricsContext;
+    }
+  }
 });
 

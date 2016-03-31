@@ -120,7 +120,12 @@ define(function (require, exports, module) {
           email,
           password,
           self.relier,
-          { reason: self.fxaClient.SIGNIN_REASON.ACCOUNT_UNLOCK }
+          /*eslint-disable indent*/
+          {
+            metricsContext: this._metricsContext.get(),
+            reason: self.fxaClient.SIGNIN_REASON.ACCOUNT_UNLOCK
+          }
+          /*eslint-enable indent*/
         )
         .fail(function (err) {
           if (AuthErrors.is(err, 'ACCOUNT_LOCKED')) {

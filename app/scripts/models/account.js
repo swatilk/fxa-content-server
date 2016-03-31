@@ -82,6 +82,7 @@ define(function (require, exports, module) {
       self._profileClient = options.profileClient;
       self._fxaClient = options.fxaClient;
       self._marketingEmailClient = options.marketingEmailClient;
+      self._metricsContext = options.metricsContext;
 
       /**
        * Keeps track of outstanding assertion generation requests, keyed
@@ -311,7 +312,9 @@ define(function (require, exports, module) {
         var sessionToken = self.get('sessionToken');
 
         if (password) {
-          return self._fxaClient.signIn(email, password, relier);
+          return self._fxaClient.signIn(email, password, relier, {
+            metricsContext: self._metricsContext.get()
+          });
         } else if (sessionToken) {
           // We have a cached Sync session so just check that it hasn't expired.
           // The result includes the latest verified state
@@ -355,6 +358,7 @@ define(function (require, exports, module) {
         relier,
         {
           customizeSync: self.get('customizeSync'),
+          metricsContext: self._metricsContext.get(),
           resume: options.resume
         })
         .then(function (updatedSessionData) {
@@ -608,6 +612,7 @@ define(function (require, exports, module) {
             newPassword,
             relier,
             {
+              metricsContext: self._metricsContext.get(),
               reason: fxaClient.SIGNIN_REASON.PASSWORD_CHANGE,
               sessionTokenContext: self.get('sessionTokenContext')
             }
@@ -650,6 +655,7 @@ define(function (require, exports, module) {
      * @param {string} token - email verification token
      * @param {string} code - email verification code
      * @param {object} relier - relier being signed in to.
+     * @param {object} relier - relier being signed in to.
      * @returns {promise} - resolves when complete
      */
     completePasswordReset: function (password, token, code, relier) {
@@ -658,13 +664,16 @@ define(function (require, exports, module) {
       var fxaClient = self._fxaClient;
       var email = self.get('email');
 
-      return fxaClient.completePasswordReset(email, password, token, code)
+      return fxaClient.completePasswordReset(email, password, token, code, {
+        metricsContext: self._metricsContext.get()
+      })
         .then(function () {
           return fxaClient.signIn(
             email,
             password,
             relier,
             {
+              metricsContext: self._metricsContext.get(),
               reason: fxaClient.SIGNIN_REASON.PASSWORD_RESET
             }
           );

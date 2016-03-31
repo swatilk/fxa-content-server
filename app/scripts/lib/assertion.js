@@ -57,7 +57,12 @@ define(function (require, exports, module) {
       // while certSign is going over the wire, we can also sign the
       // assertion here on the machine
       return P.all([
-        self._fxaClient.certificateSign(kp.publicKey.toSimpleObject(), CERT_DURATION_MS, sessionToken),
+        self._fxaClient.certificateSign(
+          kp.publicKey.toSimpleObject(),
+          CERT_DURATION_MS,
+          sessionToken,
+          { metricsContext: self._metricsContext.get() }
+        ),
         assertion(kp.secretKey, audience)
       ]);
     });
@@ -73,15 +78,17 @@ define(function (require, exports, module) {
   }
 
   function bundle(sessionToken, audience) {
-    return certificate.call(this, audience || this._audience, sessionToken).spread(function (cert, ass) {
-      return jwcrypto.cert.bundle([cert.cert], ass);
-    });
+    return certificate.call(this, audience || this._audience, sessionToken)
+      .spread(function (cert, ass) {
+        return jwcrypto.cert.bundle([cert.cert], ass);
+      });
   }
 
   function Assertion(options) {
     options = options || {};
     this._fxaClient = options.fxaClient;
     this._audience = options.audience;
+    this._metricsContext = options.metricsContext;
   }
 
   Assertion.prototype = {
