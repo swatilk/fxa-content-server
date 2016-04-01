@@ -5,13 +5,21 @@
 /**
  * A model mixin to work with ResumeTokens.
  *
- * A model should set the array `resumeTokenFields` to add/change
- * fields that are saved to and populated from the ResumeToken.
+ * Expects the following properties on `this`:
+ *
+ *   - resumeTokenFields: array of fields that are serialized to and
+ *                        parsed from the resume token.
+ *
+ *   - resumeTokenSchema: array of vat validators that will be applied
+ *                        when parsing from the resume token.
+ *
+ *   - sentryMetrics: object for reporting validation errors to Sentry.
  */
 
 define(function (require, exports, module) {
   'use strict';
 
+  var authErrors = require('lib/auth-errors');
   var ResumeToken = require('models/resume-token');
   var vat = require('lib/vat');
 
@@ -56,17 +64,34 @@ define(function (require, exports, module) {
       if (this.resumeTokenFields) {
         var pickedResumeToken = resumeToken.pick(this.resumeTokenFields);
 
-        if (isResumeTokenValid(pickedResumeToken, this.resumeTokenSchema)) {
+        if (isResumeTokenValid.call(this, pickedResumeToken)) {
           this.set(pickedResumeToken);
         }
       }
     }
   };
 
-  function isResumeTokenValid (resumeToken, schema) {
-    if (schema) {
-      var result = vat.validate(resumeToken, schema);
-      return ! result.error;
+  function isResumeTokenValid (resumeToken) {
+    if (this.resumeTokenSchema) {
+      var error = vat.validate(resumeToken, this.resumeTokenSchema).error;
+
+      if (error) {
+        if (this.sentryMetrics) {
+          if (error instanceof ReferenceError) {
+            error = authErrors.toMissingResumeTokenPropertyError(error.key);
+          } else {
+            error = authErrors.toInvalidResumeTokenPropertyError(error.key);
+          }
+
+          // HACK: Interpolate the invalid property name into the error
+          //       message. One day this will be handled automagically.
+          error.message = authErrors.toInterpolatedMessage(error);
+
+          this.sentryMetrics.captureException(error);
+        }
+
+        return false;
+      }
     }
 
     return true;
