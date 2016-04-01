@@ -12,12 +12,22 @@ define(function (require, exports, module) {
 
   var _ = require('underscore');
   var Constants = require('lib/constants');
+  var Environment = require('lib/environment');
   var FxSyncWebChannelAuthenticationBroker = require('models/auth_brokers/fx-sync-web-channel');
   var NavigateBehavior = require('views/behaviors/navigate');
 
   var proto = FxSyncWebChannelAuthenticationBroker.prototype;
 
   var FxFennecV1AuthenticationBroker = FxSyncWebChannelAuthenticationBroker.extend({
+    initialize: function (options) {
+      proto.initialize.call(this, options);
+
+      var environment = new Environment(this.window);
+      if (environment.isFramed()) {
+        this.setCapability('pushState', false);
+      }
+    },
+
     defaultBehaviors: _.extend({}, proto.defaultBehaviors, {
       afterForceAuth: new NavigateBehavior('force_auth_complete'),
       afterSignIn: new NavigateBehavior('signin_complete'),

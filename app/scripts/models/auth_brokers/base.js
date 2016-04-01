@@ -354,6 +354,10 @@ define(function (require, exports, module) {
        */
       handleSignedInNotification: true,
       /**
+       * Is history.pushState supported in this context?
+       */
+      pushState: true,
+      /**
        * Is signup supported? the fx_ios_v1 broker can disable it.
        */
       signup: true,
@@ -361,7 +365,7 @@ define(function (require, exports, module) {
        * Should the *_complete pages show a `Sync preferences` button
        * if the relier is Firefox Sync?
        */
-      syncPreferencesNotification: false
+      syncPreferencesNotification: false,
     },
 
     /**

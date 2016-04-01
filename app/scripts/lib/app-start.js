@@ -618,10 +618,18 @@ define(function (require, exports, module) {
       // If a new start page is specified, do not attempt to render
       // the route displayed in the URL because the user is
       // immediately redirected
+      var usePushState = this._authenticationBroker.hasCapability('pushState');
+
+      if (! usePushState) {
+        // If pushState cannot be used, Backbone falls back to using
+        // the hashchange. Put the initial pathname onto the hash
+        // so the correct page loads.
+        this._window.location.hash = this._window.location.pathname;
+      }
+
       var startPage = this._selectStartPage();
       var isSilent = !! startPage;
-      // pushState must be specified or else no screen transitions occur.
-      this._history.start({ pushState: true, silent: isSilent });
+      this._history.start({ pushState: usePushState, silent: isSilent });
       if (startPage) {
         this._router.navigate(startPage);
       }
