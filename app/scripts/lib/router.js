@@ -22,6 +22,7 @@ define(function (require, exports, module) {
   var ConfirmAccountUnlockView = require('../views/confirm_account_unlock');
   var ConfirmResetPasswordView = require('../views/confirm_reset_password');
   var ConfirmView = require('../views/confirm');
+  var ConfirmSignInView = require('../views/confirm_sign_in');
   var CookiesDisabledView = require('../views/cookies_disabled');
   var DeleteAccountView = require('../views/settings/delete_account');
   var DevicesView = require('../views/settings/devices');
@@ -71,6 +72,7 @@ define(function (require, exports, module) {
       'confirm(/)': createViewHandler(ConfirmView),
       'confirm_account_unlock(/)': createViewHandler(ConfirmAccountUnlockView),
       'confirm_reset_password(/)': createViewHandler(ConfirmResetPasswordView),
+      'confirm_sign_in(/)': createViewHandler(ConfirmSignInView),
       'cookies_disabled(/)': createViewHandler(CookiesDisabledView),
       'force_auth(/)': createViewHandler(ForceAuthView),
       'force_auth_complete(/)': createViewHandler(ReadyView, { type: 'force_auth' }),

@@ -22,6 +22,7 @@ define(function (require, exports, module) {
 
   // Account attributes that can be persisted
   var PERSISTENT = {
+    challenge: undefined,
     displayName: undefined,
     email: undefined,
     grantedPermissions: undefined,
@@ -50,6 +51,7 @@ define(function (require, exports, module) {
 
   var DEFAULTS = _.extend({
     accessToken: undefined,
+    challenge: undefined,
     customizeSync: undefined,
     declinedSyncEngines: undefined,
     keyFetchToken: undefined,

@@ -9,6 +9,7 @@ define(function (require, exports, module) {
   var assert = require('chai').assert;
   var Backbone = require('backbone');
   var AuthBroker = require('models/auth_brokers/base');
+  var Constants = require('lib/constants');
   var p = require('lib/promise');
   var Relier = require('models/reliers/relier');
   var SignInMixin = require('views/mixins/signin-mixin');
@@ -171,6 +172,23 @@ define(function (require, exports, module) {
           var args = view.navigate.args[0];
           assert.lengthOf(args, 2);
           assert.equal(args[0], 'confirm');
+          assert.strictEqual(args[1].account, account);
+        });
+      });
+
+      describe('confirm signin', function () {
+        beforeEach(function () {
+          account.unset('verified');
+          account.set('challenge', Constants.REVERIFY_EMAIL);
+
+          return view.signIn(account, 'password');
+        });
+
+        it('calls view.navigate correctly', function () {
+          assert.equal(view.navigate.callCount, 1);
+          var args = view.navigate.args[0];
+          assert.lengthOf(args, 2);
+          assert.equal(args[0], 'confirm_sign_in');
           assert.strictEqual(args[1].account, account);
         });
       });
