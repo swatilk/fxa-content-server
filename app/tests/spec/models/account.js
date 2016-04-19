@@ -192,10 +192,15 @@ define(function (require, exports, module) {
 
     describe('signIn', function () {
       describe('with a password', function () {
-        describe('unverified', function () {
+        describe('unverified account', function () {
           beforeEach(function () {
             sinon.stub(fxaClient, 'signIn', function () {
-              return p({ sessionToken: SESSION_TOKEN, verified: false });
+              return p({
+                challengeMethod: 'email',
+                challengeReason: 'signup',
+                sessionToken: SESSION_TOKEN,
+                verified: false
+              });
             });
 
             sinon.stub(fxaClient, 'signUpResend', function () {
@@ -220,12 +225,48 @@ define(function (require, exports, module) {
           });
 
           it('updates the account with the returned data', function () {
-            assert.isFalse(account.get('verified'));
+            assert.equal(account.get('challengeMethod'), 'email');
+            assert.equal(account.get('challengeReason'), 'signup');
             assert.equal(account.get('sessionToken'), SESSION_TOKEN);
+            assert.isFalse(account.get('verified'));
           });
         });
 
-        describe('verified', function () {
+        describe('verified account, unverified session', function () {
+          beforeEach(function () {
+            sinon.stub(fxaClient, 'signIn', function () {
+              return p({
+                challengeMethod: 'email',
+                challengeReason: 'signin',
+                sessionToken: SESSION_TOKEN,
+                verified: false
+              });
+            });
+
+            sinon.stub(fxaClient, 'signUpResend', function () {
+              return p();
+            });
+
+            return account.signIn(PASSWORD, relier, { resume: 'resume token' });
+          });
+
+          it('delegates to the fxaClient', function () {
+            assert.isTrue(fxaClient.signIn.calledWith(EMAIL, PASSWORD, relier));
+          });
+
+          it('does not delegate to the fxaClient to send re-confirmation email', function () {
+            assert.isFalse(fxaClient.signUpResend.called);
+          });
+
+          it('updates the account with the returned data', function () {
+            assert.equal(account.get('challengeMethod'), 'email');
+            assert.equal(account.get('challengeReason'), 'signin');
+            assert.equal(account.get('sessionToken'), SESSION_TOKEN);
+            assert.isFalse(account.get('verified'));
+          });
+        });
+
+        describe('verified account, verified session', function () {
           beforeEach(function () {
             sinon.stub(fxaClient, 'signIn', function () {
               return p({ sessionToken: SESSION_TOKEN, verified: true });

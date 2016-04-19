@@ -54,6 +54,11 @@ define(function (require, exports, module) {
       headerTitle: t('Welcome to Sync'),
       readyToSyncText: FX_SYNC_WILL_BEGIN_MOMENTARILY
     },
+    sign_in_confirmed: {
+      headerId: 'fxa-sign-in-confirmation-complete-header',
+      headerTitle: t('Sign-in confirmed'),
+      readyToSyncText: t('You are now ready to use %(serviceName)s')
+    },
     sign_up: {
       headerId: 'fxa-sign-up-complete-header',
       headerTitle: t('Account verified'),
@@ -72,7 +77,9 @@ define(function (require, exports, module) {
 
       this._able = options.able;
 
-      this.type = options.type;
+      if (! this.model.has('type')) {
+        this.model.set('type', options.type);
+      }
       this.language = options.language;
 
       if (this._shouldShowProceedButton()) {
@@ -97,16 +104,16 @@ define(function (require, exports, module) {
     },
 
     _getHeaderId: function () {
-      return TEMPLATE_INFO[this.type].headerId;
+      return TEMPLATE_INFO[this.model.get('type')].headerId;
     },
 
     _getHeaderTitle: function () {
-      var title = TEMPLATE_INFO[this.type].headerTitle;
+      var title = TEMPLATE_INFO[this.model.get('type')].headerTitle;
       return this.translateInTemplate(title);
     },
 
     _getReadyToSyncText: function () {
-      var readyToSyncText = TEMPLATE_INFO[this.type].readyToSyncText;
+      var readyToSyncText = TEMPLATE_INFO[this.model.get('type')].readyToSyncText;
       return this.translateInTemplate(readyToSyncText);
     },
 
@@ -171,7 +178,7 @@ define(function (require, exports, module) {
         language: this.language,
         metrics: this.metrics,
         service: this.relier.get('service'),
-        type: this.type
+        type: this.model.get('type')
       };
 
       var marketingSnippet;
@@ -187,7 +194,7 @@ define(function (require, exports, module) {
     },
 
     is: function (type) {
-      return this.type === type;
+      return this.model.get('type') === type;
     }
   });
 

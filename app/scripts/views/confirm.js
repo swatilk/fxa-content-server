@@ -6,9 +6,11 @@ define(function (require, exports, module) {
   'use strict';
 
   var AuthErrors = require('lib/auth-errors');
+  var BackMixin = require('views/mixins/back-mixin');
   var BaseView = require('views/base');
   var Cocktail = require('cocktail');
   var Constants = require('lib/constants');
+  var EmailVerificationReasons = require('lib/email-verification-reasons');
   var ExperimentMixin = require('views/mixins/experiment-mixin');
   var FormView = require('views/form');
   var OpenGmailMixin = require('views/mixins/open-gmail-mixin');
@@ -33,6 +35,10 @@ define(function (require, exports, module) {
       // ephemeral properties like unwrapBKey and keyFetchToken
       // that need to be sent to the browser.
       this._account = this.user.initAccount(this.model.get('account'));
+
+      if (! this.model.has('type')) {
+        this.model.set('type', EmailVerificationReasons.SIGN_UP);
+      }
     },
 
     getAccount: function () {
@@ -41,11 +47,22 @@ define(function (require, exports, module) {
 
     context: function () {
       var email = this.getAccount().get('email');
+      var type = this.model.get('type');
+      var isSignIn = EmailVerificationReasons.is(type, 'SIGN_IN');
+      var isSignUp = EmailVerificationReasons.is(type, 'SIGN_UP');
 
       return {
+        // Back button is only available for signin for now. We haven't fully
+        // figured out whether re-signing up a user and sending a new
+        // email/sessionToken to the browser will cause problems. I don't think
+        // it will since that's what happens on a bounced email, but that's
+        // a discussion for another time.
+        canGoBack: isSignIn && this.canGoBack(),
         email: email,
         gmailLink: this.getGmailUrl(email),
-        isOpenGmailButtonVisible: this.isOpenGmailButtonVisible(email)
+        isOpenGmailButtonVisible: this.isOpenGmailButtonVisible(email),
+        isSignIn: isSignIn,
+        isSignUp: isSignUp
       };
     },
 
@@ -60,14 +77,18 @@ define(function (require, exports, module) {
       });
     },
 
-    _gmailTabOpened: function () {
-      this.logViewEvent('openGmail.clicked');
+    _getMissingSessionTokenScreen: function () {
+      var isSignUp = EmailVerificationReasons.is(
+          this.model.get('type'), 'SIGN_UP');
+
+      var screenUrl = isSignUp ? 'signup' : 'signin';
+      return this.broker.transformLink(screenUrl);
     },
 
     beforeRender: function () {
       // user cannot confirm if they have not initiated a sign up.
       if (! this.getAccount().get('sessionToken')) {
-        this.navigate('signup');
+        this.navigate(this._getMissingSessionTokenScreen());
         return false;
       }
     },
@@ -196,6 +217,7 @@ define(function (require, exports, module) {
 
   Cocktail.mixin(
     View,
+    BackMixin,
     ExperimentMixin,
     OpenGmailMixin,
     ResendMixin,

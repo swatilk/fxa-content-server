@@ -132,6 +132,8 @@ define(function (require, exports, module) {
       }
 
       var updatedSessionData = {
+        challengeMethod: accountData.challengeMethod,
+        challengeReason: accountData.challengeReason,
         email: email,
         sessionToken: accountData.sessionToken,
         sessionTokenContext: sessionTokenContext,
@@ -198,6 +200,14 @@ define(function (require, exports, module) {
           // has been attached to their account.
           if (relier.has('service')) {
             signInOptions.service = relier.get('service');
+          }
+
+          if (relier.has('redirectTo')) {
+            signInOptions.redirectTo = relier.get('redirectTo');
+          }
+
+          if (options.resume) {
+            signInOptions.resume = options.resume;
           }
 
           return client.signIn(email, password, signInOptions);

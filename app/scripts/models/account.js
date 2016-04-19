@@ -50,6 +50,8 @@ define(function (require, exports, module) {
 
   var DEFAULTS = _.extend({
     accessToken: undefined,
+    challengeMethod: undefined,
+    challengeReason: undefined,
     customizeSync: undefined,
     declinedSyncEngines: undefined,
     keyFetchToken: undefined,
@@ -311,7 +313,9 @@ define(function (require, exports, module) {
         var sessionToken = self.get('sessionToken');
 
         if (password) {
-          return self._fxaClient.signIn(email, password, relier);
+          return self._fxaClient.signIn(email, password, relier, {
+            resume: options.resume
+          });
         } else if (sessionToken) {
           // We have a cached Sync session so just check that it hasn't expired.
           // The result includes the latest verified state
@@ -323,7 +327,8 @@ define(function (require, exports, module) {
       .then(function (updatedSessionData) {
         self.set(updatedSessionData);
 
-        if (! self.get('verified')) {
+        if (! self.get('verified') && self.get('challengeReason') !== 'signin') {
+          // sign in with an unverified account
           return self._fxaClient.signUpResend(
             relier,
             self.get('sessionToken'),

@@ -32,7 +32,9 @@ define(function (require, exports, module) {
       return self.invokeBrokerMethod('beforeSignIn', account.get('email'))
         .then(function () {
           return self.user.signInAccount(account, password, self.relier, {
-            // a resume token is passed in to handle unverified users.
+            // a resume token is passed in to allow
+            // unverified account or session users to complete
+            // email verification.
             resume: self.getStringifiedResumeToken()
           });
         })
@@ -56,9 +58,20 @@ define(function (require, exports, module) {
 
     onSignInSuccess: function (account) {
       if (! account.get('verified')) {
-        return this.navigate('confirm', {
-          account: account
-        });
+        var challengeMethod = account.get('challengeMethod');
+        var challengeReason = account.get('challengeReason');
+
+        if (challengeReason === 'signin' && challengeMethod === 'email') {
+          return this.navigate('confirm', {
+            account: account,
+            type: 'sign_in'
+          });
+        } else {
+          return this.navigate('confirm', {
+            account: account,
+            type: 'sign_up'
+          });
+        }
       }
 
       // If the account's uid changed, update the relier model or else

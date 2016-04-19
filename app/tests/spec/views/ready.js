@@ -73,6 +73,7 @@ define(function (require, exports, module) {
         'force_auth': '#fxa-force-auth-complete-header',
         'reset_password': '#fxa-reset-password-complete-header',
         'sign_in': '#fxa-sign-in-complete-header',
+        'sign_in_confirmed': '#fxa-sign-in-confirmation-complete-header',
         'sign_up': '#fxa-sign-up-complete-header'
       };
 

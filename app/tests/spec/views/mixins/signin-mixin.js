@@ -14,6 +14,8 @@ define(function (require, exports, module) {
   var SignInMixin = require('views/mixins/signin-mixin');
   var sinon = require('sinon');
 
+  var RESUME_TOKEN = 'a big hairy resume token';
+
   describe('views/mixins/signin-mixin', function () {
     it('exports correct interface', function () {
       assert.isObject(SignInMixin);
@@ -43,7 +45,9 @@ define(function (require, exports, module) {
             clear: sinon.spy()
           },
           broker: broker,
-          getStringifiedResumeToken: sinon.spy(),
+          getStringifiedResumeToken: sinon.spy(function () {
+            return RESUME_TOKEN;
+          }),
           invokeBrokerMethod: sinon.spy(function () {
             return p();
           }),
@@ -77,7 +81,8 @@ define(function (require, exports, module) {
 
         it('signs in the user', function () {
           assert.isTrue(
-            view.user.signInAccount.calledWith(account, 'password'));
+            view.user.signInAccount.calledWith(account, 'password', relier));
+          assert.equal(view.user.signInAccount.args[0][3].resume, RESUME_TOKEN);
         });
 
         it('redirects to the `signin_permissions` screen', function () {
@@ -161,9 +166,19 @@ define(function (require, exports, module) {
 
       describe('unverified account', function () {
         beforeEach(function () {
-          account.unset('verified');
+          account.set({
+            challengeMethod: 'email',
+            challengeReason: 'signup',
+            verified: false
+          });
 
           return view.signIn(account, 'password');
+        });
+
+        it('signs in the user', function () {
+          assert.isTrue(
+            view.user.signInAccount.calledWith(account, 'password', relier));
+          assert.equal(view.user.signInAccount.args[0][3].resume, RESUME_TOKEN);
         });
 
         it('calls view.navigate correctly', function () {
@@ -172,6 +187,34 @@ define(function (require, exports, module) {
           assert.lengthOf(args, 2);
           assert.equal(args[0], 'confirm');
           assert.strictEqual(args[1].account, account);
+          assert.equal(args[1].type, 'sign_up');
+        });
+      });
+
+      describe('unverified session', function () {
+        beforeEach(function () {
+          account.set({
+            challengeMethod: 'email',
+            challengeReason: 'signin',
+            verified: false
+          });
+
+          return view.signIn(account, 'password');
+        });
+
+        it('signs in the user', function () {
+          assert.isTrue(
+            view.user.signInAccount.calledWith(account, 'password', relier));
+          assert.equal(view.user.signInAccount.args[0][3].resume, RESUME_TOKEN);
+        });
+
+        it('calls view.navigate correctly', function () {
+          assert.equal(view.navigate.callCount, 1);
+          var args = view.navigate.args[0];
+          assert.lengthOf(args, 2);
+          assert.equal(args[0], 'confirm');
+          assert.strictEqual(args[1].account, account);
+          assert.equal(args[1].type, 'sign_in');
         });
       });
 

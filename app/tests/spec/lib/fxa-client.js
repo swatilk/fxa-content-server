@@ -17,8 +17,9 @@ define(function (require, exports, module) {
   var sinon = require('sinon');
   var testHelpers = require('../../lib/helpers');
 
+  var NON_SYNC_SERVICE = 'chronical';
   var STATE = 'state';
-  var SERVICE = 'sync';
+  var SYNC_SERVICE = 'sync';
   var REDIRECT_TO = 'https://sync.firefox.com';
   var AUTH_SERVER_URL = 'http://127.0.0.1:9000';
 
@@ -38,9 +39,11 @@ define(function (require, exports, module) {
     beforeEach(function () {
       email = ' ' + testHelpers.createEmail() + ' ';
       relier = new OAuthRelier();
-      relier.set('state', STATE);
-      relier.set('service', SERVICE);
-      relier.set('redirectTo', REDIRECT_TO);
+      relier.set({
+        redirectTo: REDIRECT_TO,
+        service: SYNC_SERVICE,
+        state: STATE
+      });
 
       resumeToken = ResumeToken.stringify({
         state: STATE,
@@ -124,7 +127,7 @@ define(function (require, exports, module) {
               keys: true,
               redirectTo: REDIRECT_TO,
               resume: resumeToken,
-              service: SERVICE
+              service: SYNC_SERVICE
             }));
 
             // The following should only be set for Sync
@@ -139,7 +142,7 @@ define(function (require, exports, module) {
           return p({});
         });
 
-        relier.set('service', 'chronicle');
+        relier.set('service', NON_SYNC_SERVICE);
         assert.isFalse(relier.wantsKeys());
         // customizeSync should be ignored
         return client.signUp(email, password, relier, { customizeSync: true, resume: resumeToken })
@@ -148,7 +151,7 @@ define(function (require, exports, module) {
               keys: false,
               redirectTo: REDIRECT_TO,
               resume: resumeToken,
-              service: 'chronicle'
+              service: NON_SYNC_SERVICE
             }));
 
             // These should not be returned by default
@@ -167,7 +170,7 @@ define(function (require, exports, module) {
           });
         });
 
-        relier.set('service', 'chronicle');
+        relier.set('service', NON_SYNC_SERVICE);
         relier.set('keys', true);
         assert.isTrue(relier.wantsKeys());
         return client.signUp(email, password, relier, { customizeSync: true, resume: resumeToken })
@@ -176,7 +179,7 @@ define(function (require, exports, module) {
               keys: true,
               redirectTo: REDIRECT_TO,
               resume: resumeToken,
-              service: 'chronicle'
+              service: NON_SYNC_SERVICE
             }));
 
             assert.equal(sessionData.unwrapBKey, 'unwrapBKey');
@@ -224,7 +227,7 @@ define(function (require, exports, module) {
             preVerifyToken: preVerifyToken,
             redirectTo: REDIRECT_TO,
             resume: resumeToken,
-            service: SERVICE
+            service: SYNC_SERVICE
           }));
         });
       });
@@ -248,7 +251,7 @@ define(function (require, exports, module) {
               preVerifyToken: preVerifyToken,
               redirectTo: REDIRECT_TO,
               resume: resumeToken,
-              service: SERVICE
+              service: SYNC_SERVICE
             }));
 
             return p.reject(AuthErrors.toError('INVALID_VERIFICATION_CODE'));
@@ -257,7 +260,7 @@ define(function (require, exports, module) {
               keys: true,
               redirectTo: REDIRECT_TO,
               resume: resumeToken,
-              service: SERVICE
+              service: SYNC_SERVICE
             }));
 
             return p({});
@@ -284,7 +287,7 @@ define(function (require, exports, module) {
             var params = {
               redirectTo: REDIRECT_TO,
               resume: resumeToken,
-              service: SERVICE
+              service: SYNC_SERVICE
             };
             assert.isTrue(
                 realClient.recoveryEmailResendCode.calledWith(
@@ -335,6 +338,8 @@ define(function (require, exports, module) {
       it('Sync signIn signs in a user with email/password and returns keys', function () {
         sinon.stub(realClient, 'signIn', function () {
           return p({
+            challengeMethod: 'email',
+            challengeReason: 'signin',
             keyFetchToken: 'keyFetchToken',
             unwrapBKey: 'unwrapBKey'
           });
@@ -348,19 +353,22 @@ define(function (require, exports, module) {
           return true;
         });
 
-        relier.set('service', 'sync');
-        return client.signIn(email, password, relier, { customizeSync: true })
+        return client.signIn(email, password, relier, { customizeSync: true, resume: resumeToken })
           .then(function (sessionData) {
             assert.isTrue(realClient.signIn.calledWith(trim(email), password, {
               keys: true,
               reason: client.SIGNIN_REASON.SIGN_IN,
-              service: 'sync'
+              redirectTo: REDIRECT_TO,
+              resume: resumeToken,
+              service: SYNC_SERVICE
             }));
 
-            assert.equal(sessionData.unwrapBKey, 'unwrapBKey');
+            assert.equal(sessionData.challengeMethod, 'email');
+            assert.equal(sessionData.challengeReason, 'signin');
+            // `customizeSync` should only be set for Sync
+            assert.isTrue(sessionData.customizeSync);
             assert.equal(sessionData.keyFetchToken, 'keyFetchToken');
-            // The following should only be set for Sync
-            assert.equal(sessionData.customizeSync, true);
+            assert.equal(sessionData.unwrapBKey, 'unwrapBKey');
           });
       });
 
@@ -369,15 +377,16 @@ define(function (require, exports, module) {
           return p({});
         });
 
-        relier.set('service', 'chronicle');
+        relier.set('service', NON_SYNC_SERVICE);
         assert.isFalse(relier.wantsKeys());
         // customizeSync should be ignored.
-        return client.signIn(email, password, relier, { customizeSync: true })
+        return client.signIn(email, password, relier)
           .then(function (sessionData) {
             assert.isTrue(realClient.signIn.calledWith(trim(email), password, {
               keys: false,
               reason: client.SIGNIN_REASON.SIGN_IN,
-              service: 'chronicle'
+              redirectTo: REDIRECT_TO,
+              service: NON_SYNC_SERVICE
             }));
 
             // These should not be returned by default
@@ -396,65 +405,22 @@ define(function (require, exports, module) {
           });
         });
 
-        relier.set('service', 'chronicle');
+        relier.set('service', NON_SYNC_SERVICE);
         relier.set('keys', true);
         assert.isTrue(relier.wantsKeys());
-        return client.signIn(email, password, relier, { customizeSync: true })
+        return client.signIn(email, password, relier)
           .then(function (sessionData) {
             assert.isTrue(realClient.signIn.calledWith(trim(email), password, {
               keys: true,
               reason: client.SIGNIN_REASON.SIGN_IN,
-              service: 'chronicle'
+              redirectTo: REDIRECT_TO,
+              service: NON_SYNC_SERVICE
             }));
 
             assert.equal(sessionData.unwrapBKey, 'unwrapBKey');
             assert.equal(sessionData.keyFetchToken, 'keyFetchToken');
             // The following should only be set for Sync
             assert.isFalse('customizeSync' in sessionData);
-          });
-      });
-
-      it('Sync signIn informs browser of customizeSync option', function () {
-        sinon.stub(relier, 'isSync', function () {
-          return true;
-        });
-
-        sinon.stub(relier, 'wantsKeys', function () {
-          return true;
-        });
-
-        sinon.stub(realClient, 'signIn', function () {
-          return p({});
-        });
-
-        return client.signIn(email, password, relier, { customizeSync: true })
-          .then(function (result) {
-            assert.isTrue(realClient.signIn.calledWith(trim(email), password, {
-              keys: true,
-              reason: client.SIGNIN_REASON.SIGN_IN,
-              service: 'sync'
-            }));
-
-            assert.isTrue(result.customizeSync);
-          });
-      });
-
-      it('passes along an optional `reason`', function () {
-        sinon.stub(relier, 'wantsKeys', function () {
-          return true;
-        });
-
-        sinon.stub(realClient, 'signIn', function () {
-          return p({});
-        });
-
-        return client.signIn(email, password, relier, { reason: client.SIGNIN_REASON.PASSWORD_CHANGE })
-          .then(function () {
-            assert.isTrue(realClient.signIn.calledWith(trim(email), password, {
-              keys: true,
-              reason: client.SIGNIN_REASON.PASSWORD_CHANGE,
-              service: 'sync'
-            }));
           });
       });
     });
@@ -472,7 +438,7 @@ define(function (require, exports, module) {
             var params = {
               redirectTo: REDIRECT_TO,
               resume: resumeToken,
-              service: SERVICE
+              service: SYNC_SERVICE
             };
             assert.isTrue(
                 realClient.passwordForgotSendCode.calledWith(
@@ -504,7 +470,7 @@ define(function (require, exports, module) {
             var params = {
               redirectTo: REDIRECT_TO,
               resume: resumeToken,
-              service: SERVICE
+              service: SYNC_SERVICE
             };
             assert.isTrue(
                 realClient.passwordForgotResendCode.calledWith(

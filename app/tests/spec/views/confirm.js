@@ -10,6 +10,7 @@ define(function (require, exports, module) {
   var BaseBroker = require('models/auth_brokers/base');
   var chai = require('chai');
   var Duration = require('duration');
+  var EmailVerificationReasons = require('lib/email-verification-reasons');
   var FxaClient = require('lib/fxa-client');
   var Metrics = require('lib/metrics');
   var Notifier = require('lib/channels/notifier');
@@ -21,6 +22,9 @@ define(function (require, exports, module) {
   var User = require('models/user');
   var View = require('views/confirm');
   var WindowMock = require('../../mocks/window');
+
+  var SIGNIN_REASON = EmailVerificationReasons.SIGN_IN;
+  var SIGNUP_REASON = EmailVerificationReasons.SIGN_UP;
 
   var assert = chai.assert;
 
@@ -64,7 +68,8 @@ define(function (require, exports, module) {
       });
 
       model.set({
-        account: account
+        account: account,
+        type: SIGNUP_REASON
       });
 
       sinon.stub(user, 'setSignedInAccount', function () {
@@ -73,6 +78,7 @@ define(function (require, exports, module) {
 
       view = new View({
         broker: broker,
+        canGoBack: true,
         fxaClient: fxaClient,
         metrics: metrics,
         model: model,
@@ -84,9 +90,9 @@ define(function (require, exports, module) {
       });
 
       return view.render()
-          .then(function () {
-            $('#container').html(view.el);
-          });
+        .then(function () {
+          $('#container').html(view.el);
+        });
     });
 
     afterEach(function () {
@@ -99,28 +105,75 @@ define(function (require, exports, module) {
     });
 
     describe('render', function () {
-      it('draws the template', function () {
-        assert.ok($('#fxa-confirm-header').length);
+      describe('with sessionToken', function () {
+        describe('sign up', function () {
+          beforeEach(function () {
+            model.set('type', SIGNUP_REASON);
+
+            return view.render();
+          });
+
+          it('draws the correct template', function () {
+            assert.lengthOf($('#back'), 0);
+            assert.lengthOf($('#fxa-confirm-header'), 1);
+          });
+        });
+
+        describe('sign in', function () {
+          beforeEach(function () {
+            model.set('type', SIGNIN_REASON);
+
+            return view.render();
+          });
+
+          it('draws the correct template', function () {
+            assert.lengthOf($('#back'), 1);
+            assert.lengthOf($('#fxa-confirm-signin-header'), 1);
+          });
+        });
       });
 
-      it('redirects to /signup if no account sessionToken', function () {
-        model.set({
-          account: user.initAccount()
+      describe('without a sessionToken', function () {
+        beforeEach(function () {
+          model.set({
+            account: user.initAccount()
+          });
+
+          view = new View({
+            broker: broker,
+            canGoBack: true,
+            model: model,
+            notifier: notifier,
+            user: user,
+            window: windowMock
+          });
+
+          sinon.spy(view, 'navigate');
         });
-        view = new View({
-          model: model,
-          notifier: notifier,
-          user: user,
-          window: windowMock
-        });
-        sinon.spy(view, 'navigate');
-        return view.render()
-          .then(function () {
+
+        describe('sign up', function () {
+          beforeEach(function () {
+            return view.render();
+          });
+
+          it('redirects to `/signup`', function () {
             assert.isTrue(view.navigate.calledWith('signup'));
           });
+        });
+
+        describe('sign in', function () {
+          beforeEach(function () {
+            model.set('type', 'sign_in');
+
+            return view.render();
+          });
+
+          it('redirects to `/signin`', function () {
+            assert.isTrue(view.navigate.calledWith('signin'));
+          });
+        });
       });
     });
-
 
     describe('afterVisible', function () {
       it('notifies the broker before the confirmation', function () {
@@ -430,6 +483,7 @@ define(function (require, exports, module) {
 
         view = new View({
           broker: broker,
+          canGoBack: true,
           fxaClient: fxaClient,
           metrics: metrics,
           model: model,
