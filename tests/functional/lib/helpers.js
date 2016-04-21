@@ -203,7 +203,7 @@ define([
 
   function noSuchElement(context, selector) {
     return function () {
-      return context.remote
+      return this.parent
         .setFindTimeout(0)
 
         .findByCssSelector(selector)

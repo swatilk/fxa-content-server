@@ -5,99 +5,77 @@
 define([
   'intern',
   'intern!object',
-  'intern/node_modules/dojo/node!xmlhttprequest',
-  'app/bower_components/fxa-js-client/fxa-client',
   'tests/lib/helpers',
   'tests/functional/lib/helpers'
-], function (intern, registerSuite, nodeXMLHttpRequest, FxaClient,
-  TestHelpers, FunctionalHelpers) {
+], function (intern, registerSuite, TestHelpers, FunctionalHelpers) {
   var config = intern.config;
   var PAGE_URL = config.fxaContentRoot + 'signin?context=fx_fennec_v1&service=sync';
 
-  var AUTH_SERVER_ROOT = config.fxaAuthRoot;
-
-  var client;
   var email;
   var PASSWORD = '12345678';
 
-  var listenForFxaCommands = FunctionalHelpers.listenForWebChannelMessage;
-  var respondToWebChannelMessage = FunctionalHelpers.respondToWebChannelMessage;
+  var thenify = FunctionalHelpers.thenify;
 
-  function createUser(isPreVerified) {
-    email = TestHelpers.createEmail();
-    return client.signUp(email, PASSWORD,
-      {
-        preVerified: isPreVerified || false
-      }
-    );
-  }
+  var clearBrowserState = thenify(FunctionalHelpers.clearBrowserState);
+  var createUser = FunctionalHelpers.createUser;
+  var fillOutSignIn = thenify(FunctionalHelpers.fillOutSignIn);
+  var openPage = thenify(FunctionalHelpers.openPage);
+  var respondToWebChannelMessage = FunctionalHelpers.respondToWebChannelMessage;
+  var testElementExists = FunctionalHelpers.testElementExists;
+  var testIsBrowserNotified = FunctionalHelpers.testIsBrowserNotified;
+
 
   registerSuite({
     name: 'Fx Fennec Sync v1 sign_in',
 
     beforeEach: function () {
-      client = new FxaClient(AUTH_SERVER_ROOT, {
-        xhr: nodeXMLHttpRequest.XMLHttpRequest
-      });
-      // clear localStorage to avoid pollution from other tests.
-      return FunctionalHelpers.clearBrowserState(this);
+      email = TestHelpers.createEmail();
+
+      return this.remote
+        .then(clearBrowserState(this));
     },
 
-    afterEach: function () {
-      return FunctionalHelpers.clearBrowserState(this);
-    },
-
-    'sign in verified': function () {
+    'verified': function () {
       var self = this;
-      return createUser(true)
-        .then(function () {
-          return FunctionalHelpers.openPage(self, PAGE_URL, '#fxa-signin-header')
-            .execute(listenForFxaCommands)
-            .then(respondToWebChannelMessage(self, 'fxaccounts:can_link_account', { ok: true } ))
+      return this.remote
+        .then(createUser(email, PASSWORD, { preVerified: true }))
+        .then(openPage(this, PAGE_URL, '#fxa-signin-header'))
+        .then(respondToWebChannelMessage(self, 'fxaccounts:can_link_account', { ok: true } ))
 
-            .then(function () {
-              return FunctionalHelpers.fillOutSignIn(self, email, PASSWORD);
-            })
+        .then(fillOutSignIn(this, email, PASSWORD))
 
-            .findByCssSelector('#fxa-sign-in-complete-header')
-            .end()
+        // for sync, a user must re-confirm their email address.
+        .then(testElementExists('#fxa-confirm-signin-header'))
 
-            // browser should have been notified.
-            .then(FunctionalHelpers.testIsBrowserNotified(self, 'fxaccounts:can_link_account'))
-            .then(FunctionalHelpers.testIsBrowserNotified(self, 'fxaccounts:login'))
-            .then(FunctionalHelpers.noSuchBrowserNotification(self, 'fxaccounts:sync_preferences'))
+        // browser should have been notified.
+        .then(testIsBrowserNotified(self, 'fxaccounts:can_link_account'))
+        .then(testIsBrowserNotified(self, 'fxaccounts:login'));
 
-            // user should be able to click on a sync preferences button.
-            .findByCssSelector('#sync-preferences')
-              // user wants to open sync preferences.
-              .click()
-            .end()
+      /*
+         TODO - add tests to re-verify email
+      .then(noSuchBrowserNotification(self, 'fxaccounts:sync_preferences'))
+      // user should be able to click on a sync preferences button.
+      .then(click('#sync-preferences'))
 
-            // browser is notified of desire to open Sync preferences
-            .then(FunctionalHelpers.testIsBrowserNotified(self, 'fxaccounts:sync_preferences'));
-
-        });
+      // browser is notified of desire to open Sync preferences
+      .then(testIsBrowserNotified(self, 'fxaccounts:sync_preferences'));
+      */
     },
 
-    'sign in unverified': function () {
+    'unverified': function () {
       var self = this;
 
-      return createUser(false)
-        .then(function () {
-          return FunctionalHelpers.openPage(self, PAGE_URL, '#fxa-signin-header')
-            .execute(listenForFxaCommands)
-            .then(respondToWebChannelMessage(self, 'fxaccounts:can_link_account', { ok: true } ))
+      return this.remote
+        .then(createUser(email, PASSWORD, { preVerified: false }))
+        .then(openPage(this, PAGE_URL, '#fxa-signin-header'))
+        .then(respondToWebChannelMessage(self, 'fxaccounts:can_link_account', { ok: true } ))
 
-            .then(function () {
-              return FunctionalHelpers.fillOutSignIn(self, email, PASSWORD);
-            })
+        .then(fillOutSignIn(self, email, PASSWORD))
 
-            .findByCssSelector('#fxa-confirm-header')
-            .end()
+        .then(testElementExists('#fxa-confirm-header'))
 
-            .then(FunctionalHelpers.testIsBrowserNotified(self, 'fxaccounts:can_link_account'))
-            .then(FunctionalHelpers.testIsBrowserNotified(self, 'fxaccounts:login'));
-        });
+        .then(testIsBrowserNotified(self, 'fxaccounts:can_link_account'))
+        .then(testIsBrowserNotified(self, 'fxaccounts:login'));
     }
   });
 });

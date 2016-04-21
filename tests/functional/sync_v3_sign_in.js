@@ -9,7 +9,7 @@ define([
   'tests/functional/lib/helpers'
 ], function (intern, registerSuite, TestHelpers, FunctionalHelpers) {
   var config = intern.config;
-  var PAGE_URL = config.fxaContentRoot + 'signin?context=fx_desktop_v2&service=sync';
+  var PAGE_URL = config.fxaContentRoot + 'signin?context=fx_desktop_v3&service=sync';
 
   var email;
   var PASSWORD = '12345678';
@@ -25,7 +25,7 @@ define([
   var testIsBrowserNotified = FunctionalHelpers.testIsBrowserNotified;
 
   registerSuite({
-    name: 'Firefox Desktop Sync v2 sign_in',
+    name: 'Firefox Desktop Sync v3 sign_in',
 
     beforeEach: function () {
       email = TestHelpers.createEmail();
